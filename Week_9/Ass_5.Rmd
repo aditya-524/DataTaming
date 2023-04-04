@@ -1,0 +1,159 @@
+---
+title: "Assignment 5"
+author: "Aditya D Pandey"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(lubridate)
+library(skimr)
+#install.packages( "tidymodels" )
+library(tidymodels)
+aff<-read_csv("affairs.csv")
+view(aff)
+```
+
+```{r DC_1}
+head(aff)
+```
+
+```{r DC_2}
+names(aff)
+str(aff)
+
+
+```
+Outcome Variable : affair
+Predictor Variable: can be all other 
+```{r DC_3}
+skim(aff)
+
+```
+There seems to be no missing data.
+The number of observation : 601
+Number of variables : 9
+Variables that can be converted to factor : affair, sex, child, religious, education, occupation, rate
+
+```{r DC_4}
+aff$affair <- ifelse(aff$affair == 1, "Yes", "No")
+aff$affair <- as.factor(aff$affair)
+aff$sex <- as.factor(aff$sex)
+aff$child <- as.factor(aff$child)
+
+```
+
+```{r DC_5}
+skim(aff)
+table(aff$affair)
+
+```
+
+a. 150
+b. Mean Age : 32.487 ; Mean response on Religious Scale : 3.116
+
+## Exploratory analysis
+
+```{r EA_1}
+tab1 <- table(aff$affair, aff$sex)
+#tab1
+prop_female_no_affair <- round(tab1[,1]["No"]/sum(tab1[1,]),3)
+prop_female_yes_affair <- round(tab1[,1]["Yes"]/sum(tab1[2,]),3)
+
+prop_female_no_affair
+prop_female_yes_affair
+
+```
+
+
+There seems to be a marginal difference between the proportion
+of females who will have an affair opposed to those who will not
+
+
+```{r EA_2}
+tab2 <- table(aff$affair, aff$child)
+#tab2
+prop_children_yes_affair <- round(tab2[,2]["Yes"]/sum(tab2[2,]),3)
+prop_children_no_affair <- round(tab2[,2]["No"]/sum(tab2[1,]),3)
+prop_children_yes_affair
+prop_children_no_affair
+```
+
+The outcome derived from this is not enough to conclude that one is  more likely to have children if one would have an affair.
+
+```{r SAP_1}
+set.seed(1234)
+affairs_split <- initial_split(aff)
+affairs_split
+
+
+```
+There are 450 observations in training set and 151 observations in the testing set
+
+```{r SAP_2}
+affairs_train <- training(affairs_split)
+affairs_test <- testing(affairs_split)
+
+head(affairs_train)
+head(affairs_test)
+
+```
+```{r SAP_3}
+install.packages("themis")
+library(themis)
+?step_downsample
+
+```
+
+As is evident from the help docs step_downsample creates a specification of a 
+recipe step that will remove rows of a data set to make the occurrence of 
+levels in a specific factor level equal. we may use ste_downsample when we have imbalanced classes in a dataset, it means that the number of observations in one class is much greater than the number of observations in the other class.
+
+```{r SAP_4}
+
+affairs_recipe <- recipe(affair ~ ., data = affairs_train) %>%
+  step_downsample(affair) %>% 
+  step_dummy(all_nominal(), -all_outcomes()) %>%
+  step_normalize(all_predictors())
+
+affairs_recipe %>% prep()
+
+```
+```{r SAP_5}
+# prepare recipe using training data
+prepped_recipe <- prep(affairs_recipe, training = affairs_train)
+
+# juice the preprocessed training set
+preprocessed_train <- juice(prepped_recipe)
+
+# bake the preprocessed testing set
+preprocessed_test <- bake(prepped_recipe, new_data = affairs_test)
+
+
+```
+```{r SAP_6}
+skim(preprocessed_train)
+```
+1. Down sample our data on affair : Since, the number of observations in the
+affair variable is balanced between the two classes(113 Yes & 113 No), 
+it means the downsampling step worked correctly.
+
+2. Convert all our categorical predictors to dummy variables: Since affair is 
+the outcome variable and we used -all_outcomes() while step_dummy() it is still
+a categorical variable, but apart from that the original categorical predictors
+have been successfully converted to dummy variables.
+
+3. Normalise all of our predictor variables to have mean 0 and standard 
+deviation 1 : The Standard Deviation has been converted to 1 but the mean is 
+close to 0 with exponential upto e^-16, safe to presume them to be 
+approximately zero.  
+
+```{r TAF_1}
+
+
+```
+
+
